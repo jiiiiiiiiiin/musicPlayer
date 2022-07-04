@@ -3,16 +3,18 @@ from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QUrl, QTimer
 from player import Ui_MainWindow
-import requests
-import time
 import threading
+import requests
+import pyttsx3
+import time
+import re
 import mkf
 import ncm
-import pyttsx3
+from config import *
 
-
-app_id = "xxxx"
-api_key = "xxxx"
+# 可以把下方注释去除填写信息，但要注释 from config import *
+# app_id = "xxxx"
+# api_key = "xxxx"
 
 
 class MainWindow(QMainWindow):
@@ -32,8 +34,6 @@ class MainWindow(QMainWindow):
         # 播放按钮绑定到播放
         self.ui.pushButton_play.clicked.connect(self.play)
         self.ui.pushButton_stop.clicked.connect(self.stop)
-        # plainTextEdit 禁止编辑
-        self.ui.plainTextEdit.setReadOnly(True)
         # horizontalSlider 绑定到播放器
         self.ui.horizontalSlider.sliderMoved.connect(self.player.setPosition)
         self.ui.pushButton_next.clicked.connect(lambda: self.play("next"))
@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
         self.pp = pyttsx3.init()
 
         self.current_song = None
+        self.current_lyric = None
         self.flag_play = False
 
     def voice_recognition(self):
@@ -154,14 +155,15 @@ class MainWindow(QMainWindow):
         if not lyric:
             print("获取歌词失败")
             return
-        self.ui.plainTextEdit.setPlainText(lyric)
+        # self.ui.plainTextEdit.setPlainText(lyric)
+        self.current_lyric = lyric
 
         song_url = ncm.get_song(song_id)  # 获取歌曲url
         if not song_url:
             print("获取歌曲url失败")
             return
 
-        self.ui.label_song.setText(song_info.get("name"))
+        self.ui.label_song.setText(f'{song_info.get("name")} - {song_info.get("artist")}')
         self.ui.label_time.setText(f'00:00 / {song_info.get("dT")}')
         self.current_song = song_url
         self.player.setMedia(QMediaContent(QUrl(song_url)))
@@ -197,7 +199,7 @@ class MainWindow(QMainWindow):
             self.ui.pushButton_play.setText("暂停")
             self.flag_play = True
             # 启动定时器
-            self.timer.start(1000)
+            self.timer.start(100)
         return True
 
     def stop(self):
@@ -220,6 +222,18 @@ class MainWindow(QMainWindow):
         # 如果播放结束
         if time == self.player.duration():
             self.play("next")
+
+        # 更新歌词
+        lyric = self.current_lyric
+        if not lyric:
+            return
+        lyric_list = lyric.split("\n")
+        for i in range(len(lyric_list)):
+            if ncm.ms_to_min(time) in lyric_list[i]:
+                # 显示到label3
+                self.ui.label_3.setText(lyric_list[i][lyric_list[i].find("]") + 1:])
+                break
+
 
 
 if __name__ == '__main__':
